@@ -1,0 +1,52 @@
+# GPU version of mnist-app-cpu.
+#   docker compose up --build        train once on the GPU, then serve on :8000
+#   docker compose run --rm -e FORCE_RETRAIN=1 trainer     retrain
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  trainer:
+    build:
+      context: .
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu126}
+    image: mnist-app-gpu:latest
+    command: ["python", "train.py"]
+    environment:
+      EPOCHS: ${EPOCHS:-10}
+      BATCH_SIZE: ${BATCH_SIZE:-256}
+      FORCE_RETRAIN: ${FORCE_RETRAIN:-0}
+      AUGMENT: ${AUGMENT:-1}
+      REQUIRE_GPU: "1"
+    volumes:
+      - model_data:/shared_data
+      - mnist_data:/workspace/data      # MNIST is downloaded once, not on every run
+    <<: *gpu
+
+  webapp:
+    build:
+      context: .
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu126}
+    image: mnist-app-gpu:latest
+    ports:
+      - "8000:8000"
+    environment:
+      REQUIRE_GPU: "1"
+    volumes:
+      - model_data:/shared_data
+    depends_on:
+      trainer:
+        condition: service_completed_successfully
+    <<: *gpu
+
+volumes:
+  model_data:
+  mnist_data:

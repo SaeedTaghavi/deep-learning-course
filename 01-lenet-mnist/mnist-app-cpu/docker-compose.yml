@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  trainer:
+    build:
+      context: ./model
+      dockerfile: Dockerfile.train
+    volumes:
+      - model_data:/shared_data
+
+  webapp:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.app
+    ports:
+      - "8001:8000"
+    volumes:
+      - model_data:/shared_data
+    depends_on:
+      - trainer
+
+volumes:
+  model_data:

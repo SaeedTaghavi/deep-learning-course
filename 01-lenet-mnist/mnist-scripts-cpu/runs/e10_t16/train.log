@@ -1,0 +1,14 @@
+Device: cpu, 16 threads, torch 2.5.1+cu121
+LeNet-5: 431,080 parameters | 60,000 training images
+Epoch  1/10 | loss 0.1538 | train acc 95.27% | 6.9 s
+Epoch  2/10 | loss 0.0430 | train acc 98.66% | 6.7 s
+Epoch  3/10 | loss 0.0293 | train acc 99.06% | 6.8 s
+Epoch  4/10 | loss 0.0224 | train acc 99.31% | 6.9 s
+Epoch  5/10 | loss 0.0171 | train acc 99.42% | 6.7 s
+Epoch  6/10 | loss 0.0131 | train acc 99.56% | 6.5 s
+Epoch  7/10 | loss 0.0120 | train acc 99.62% | 6.4 s
+Epoch  8/10 | loss 0.0088 | train acc 99.70% | 6.7 s
+Epoch  9/10 | loss 0.0079 | train acc 99.73% | 6.6 s
+Epoch 10/10 | loss 0.0078 | train acc 99.73% | 6.6 s
+Done in 66.8 s. Weights saved to runs/e10_t16/lenet_mnist.pth
+Next: python test.py --weights runs/e10_t16/lenet_mnist.pth

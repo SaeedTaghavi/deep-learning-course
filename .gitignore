@@ -1,0 +1,21 @@
+# datasets and trained weights are downloaded or produced by the code
+data/
+shared_data/
+*.pth
+*.pt
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# outputs of test.py --save-errors and export_pngs.py
+*errors*.png
+mnist_pngs*/
+
+# editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

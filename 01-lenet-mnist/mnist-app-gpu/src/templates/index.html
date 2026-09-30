@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Digit reader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #F3F5F7;
+      --grid: #E2E7EC;
+      --panel: #FFFFFF;
+      --ink: #1C2A3A;
+      --muted: #5B6875;
+      --accent: #2446C8;
+      --bar: #C8D1DB;
+      --error: #B3261E;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background-color: var(--paper);
+      /* 28 px graph paper: the same grid MNIST lives on */
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 28px 28px;
+      font-family: "Archivo", system-ui, sans-serif;
+      font-size: 17px;
+      line-height: 1.5;
+    }
+
+    main { max-width: 920px; margin: 0 auto; padding: 56px 16px 72px; }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(30px, 5vw, 46px);
+      font-weight: 800;
+      font-stretch: 125%;
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+    }
+    .lede { margin: 0 0 32px; color: var(--muted); max-width: 58ch; }
+
+    /* ---------- drop zone ---------- */
+    .drop {
+      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+      padding: 22px 24px;
+      background: var(--panel);
+      border: 2px dashed var(--bar);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color .15s, background-color .15s;
+    }
+    .drop:hover, .drop.over { border-color: var(--accent); }
+    .drop.over { background: #EEF2FD; }
+    .drop:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
+    .drop input {
+      position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+    }
+    .choose {
+      padding: 10px 18px;
+      background: var(--ink); color: #fff;
+      border-radius: var(--radius);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .drop-text { color: var(--muted); }
+    .drop-text strong { color: var(--ink); font-weight: 600; }
+
+    .message { min-height: 1.5em; margin: 14px 2px 0; color: var(--muted); }
+    .message.error { color: var(--error); }
+
+    /* ---------- result ---------- */
+    .result {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(200px, 0.9fr);
+      gap: 28px;
+      align-items: end;
+      margin-top: 10px;
+      padding: 28px;
+      background: var(--panel);
+      border: 1px solid var(--grid);
+      border-radius: var(--radius);
+    }
+    .result[hidden] { display: none; }
+
+    figure { margin: 0; }
+    figcaption { margin-top: 8px; font-size: 14px; color: var(--muted); }
+
+    .upload {
+      display: block; width: 100%; height: 224px;
+      object-fit: contain;
+      background: var(--paper);
+      border-radius: 4px;
+    }
+    .seen {
+      display: block; width: 224px; height: 224px;
+      image-rendering: pixelated;
+      background: #000;
+      border-radius: 4px;
+    }
+
+    .verdict { text-align: left; }
+    .digit {
+      display: block;
+      font-size: clamp(140px, 20vw, 216px);
+      font-weight: 800;
+      font-stretch: 125%;
+      line-height: .82;
+      letter-spacing: -0.03em;
+      font-variant-numeric: lining-nums;
+    }
+    .verdict.busy .digit { color: var(--bar); }
+    .confidence { margin: 14px 0 0; font-size: 15px; color: var(--muted); }
+    .confidence strong { color: var(--ink); font-weight: 600; }
+    .confidence .warn { display: block; color: var(--error); }
+    .confidence .timing { display: block; font-size: 14px; }
+
+    .runtime { margin: 20px 2px 0; font-size: 14px; color: var(--muted); }
+    .runtime[hidden] { display: none; }
+
+    .probs { grid-column: 1 / -1; }
+    .probs h2 { margin: 4px 0 12px; font-size: 15px; font-weight: 600; }
+    .bars {
+      display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px;
+      height: 150px; align-items: end;
+    }
+    .col { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; text-align: center; }
+    .pct { font-size: 12px; color: var(--muted); min-height: 1.4em; }
+    .bar {
+      height: 0; min-height: 2px;
+      background: var(--bar);
+      border-radius: 3px 3px 0 0;
+      transition: height .45s cubic-bezier(.2, .8, .2, 1);
+    }
+    .lab {
+      margin-top: 6px; padding-top: 4px;
+      border-top: 1px solid var(--grid);
+      font-weight: 600; font-stretch: 110%;
+    }
+    .col.top .bar { background: var(--accent); }
+    .col.top .pct, .col.top .lab { color: var(--accent); }
+
+    @media (max-width: 720px) {
+      main { padding-top: 36px; }
+      .result { grid-template-columns: 1fr 1fr; padding: 20px; gap: 20px; }
+      .verdict { grid-column: 1 / -1; order: -1; display: flex; align-items: flex-end; gap: 20px; }
+      .seen { width: 100%; height: auto; aspect-ratio: 1; }
+      .upload { height: auto; aspect-ratio: 1; }
+      .bars { gap: 4px; height: 120px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bar, .drop { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Digit reader</h1>
+    <p class="lede">
+      Give it a picture of a single handwritten digit and a LeNet network trained on MNIST
+      says which one it is. Dark ink on a light background works best.
+    </p>
+
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/*">
+      <span class="choose">Choose image</span>
+      <span class="drop-text"><strong>or drop it here.</strong> You can also paste an image from the clipboard.</span>
+    </label>
+    <p class="message" id="message" role="status" aria-live="polite"></p>
+
+    <section class="result" id="result" hidden aria-label="Prediction">
+      <figure>
+        <img class="upload" id="upload" alt="The image you uploaded">
+        <figcaption id="uploadName">Your image</figcaption>
+      </figure>
+
+      <figure>
+        <img class="seen" id="seen" alt="The 28 by 28 pixel image the network received">
+        <figcaption>What the network sees, 28 × 28 px</figcaption>
+      </figure>
+
+      <div class="verdict" id="verdict">
+        <span class="digit" id="digit" aria-describedby="confidence">?</span>
+        <p class="confidence" id="confidence"></p>
+      </div>
+
+      <div class="probs">
+        <h2>Probability for each digit</h2>
+        <div class="bars" id="bars"></div>
+      </div>
+    </section>
+
+    <!-- Filled in only when the server has a /health endpoint (the GPU app). -->
+    <p class="runtime" id="runtime" hidden></p>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fileInput = $("file"), drop = $("drop"), msg = $("message");
+    let previewUrl = null;
+
+    // Build the ten probability columns once.
+    for (let d = 0; d < 10; d++) {
+      const col = document.createElement("div");
+      col.className = "col";
+      col.innerHTML = `<span class="pct"></span><div class="bar"></div><span class="lab">${d}</span>`;
+      $("bars").appendChild(col);
+    }
+    const cols = [...$("bars").children];
+
+    function setMessage(text, isError = false) {
+      msg.textContent = text;
+      msg.classList.toggle("error", isError);
+    }
+
+    async function predict(file) {
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        setMessage(`${file.name} isn't an image. Choose a PNG or JPG.`, true);
+        return;
+      }
+
+      // Show the upload immediately, then fill in the prediction.
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = URL.createObjectURL(file);
+      $("upload").src = previewUrl;
+      $("uploadName").textContent = file.name || "Pasted image";
+      $("result").hidden = false;
+      $("verdict").classList.add("busy");
+      $("confidence").textContent = "Reading…";
+      setMessage("");
+
+      const body = new FormData();
+      body.append("file", file);
+
+      let data;
+      try {
+        const res = await fetch("/predict", { method: "POST", body });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}.`);
+      } catch (err) {
+        $("verdict").classList.remove("busy");
+        $("digit").textContent = "?";
+        $("confidence").textContent = "";
+        setMessage(err instanceof TypeError
+          ? "Couldn't reach the server. Check that the webapp container is running."
+          : err.message, true);
+        return;
+      }
+
+      $("verdict").classList.remove("busy");
+      $("digit").textContent = data.prediction;
+      $("seen").src = "data:image/png;base64," + data.model_input_png;
+
+      const pct = (p) => (p * 100).toFixed(p >= 0.995 || p < 0.1 ? 0 : 1) + "%";
+      $("confidence").innerHTML =
+        `Predicted digit, <strong>${pct(data.confidence)}</strong> confidence` +
+        (data.confidence < 0.6
+          ? `<span class="warn">Low confidence: the network isn't sure about this one.</span>`
+          : "") +
+        (data.inference_ms !== undefined
+          ? `<span class="timing">Forward pass ${data.inference_ms} ms on ${data.device}</span>`
+          : "");
+
+      const probs = data.probabilities;
+      cols.forEach((col, d) => {
+        const p = probs[d];
+        col.classList.toggle("top", d === data.prediction);
+        col.querySelector(".bar").style.height = `${Math.max(p, 0) * 100}%`;
+        col.querySelector(".pct").textContent = p >= 0.01 ? pct(p) : "";
+        col.title = `${d}: ${(p * 100).toFixed(2)}%`;
+      });
+    }
+
+    // The GPU app reports its device and model accuracy on /health; the CPU app has no
+    // such endpoint, so this line simply stays hidden there.
+    fetch("/health")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((h) => {
+        let text = `Running on ${h.gpu || h.device}, PyTorch ${h.torch}` +
+          (h.torch_cuda ? ` with CUDA ${h.torch_cuda}` : "") + ".";
+        if (h.model && h.model.test_accuracy !== undefined)
+          text += ` The model scored ${(h.model.test_accuracy * 100).toFixed(2)}% on the MNIST test set.`;
+        $("runtime").textContent = text;
+        $("runtime").hidden = false;
+      })
+      .catch(() => {});
+
+    fileInput.addEventListener("change", () => {
+      predict(fileInput.files[0]);
+      fileInput.value = "";   // allow choosing the same file again
+    });
+
+    ["dragenter", "dragover"].forEach((ev) =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach((ev) =>
+      drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", (e) => predict(e.dataTransfer.files[0]));
+
+    // Stop a file dropped outside the zone from opening in the browser tab.
+    window.addEventListener("dragover", (e) => e.preventDefault());
+    window.addEventListener("drop", (e) => e.preventDefault());
+
+    document.addEventListener("paste", (e) => {
+      const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+      if (item) predict(item.getAsFile());
+    });
+  </script>
+</body>
+</html>
