@@ -10,9 +10,8 @@ __pycache__/
 .venv/
 venv/
 
-# outputs of test.py --save-errors and export_pngs.py
+# output of test.py --save-errors
 *errors*.png
-mnist_pngs*/
 
 # editors and OS
 .vscode/
